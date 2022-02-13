@@ -3,7 +3,7 @@ using OptimalLapTime
 
 makedocs(
     sitename = "OptimalLapTime",
-    format = Documenter.HTML(),
+    #format = Documenter.HTML(),
     modules = [OptimalLapTime]
 )
 
