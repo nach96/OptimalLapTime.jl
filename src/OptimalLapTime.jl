@@ -6,7 +6,9 @@ export goodbye
 - None
 """
 function greet()
-    print("Hello World!")
+    str = "Hello World"
+    print(str)
+    return str;
 end
 
 """A goodbye function

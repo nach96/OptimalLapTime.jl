@@ -13,3 +13,6 @@ makedocs(
 #=deploydocs(
     repo = "<repository url>"
 )=#
+deploydocs(
+    repo = "github.com/nach96/OptimalLapTime.jl.git",
+)
