@@ -6,5 +6,4 @@ Developing a Julia library for Race car Optimal Lap Time simulation, based on He
 
 ```@docs
 OptimalLapTime.greet()
-goodbye(who)
 ```

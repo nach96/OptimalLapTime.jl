@@ -1,5 +1,5 @@
 module OptimalLapTime
-export goodbye
+export greet
 
 """ A greet function
 # Arguments
@@ -11,8 +11,9 @@ function greet()
     return str;
 end
 
-"""A goodbye function
-"""
-goodbye(who) = print("Bye "*who)
+
+
+
+
 
 end # module
