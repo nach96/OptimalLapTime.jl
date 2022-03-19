@@ -7,7 +7,8 @@ include("BirdView.jl")
 ############################################################################
 smid = chicaneTrack.smid
 s_control = smid
-vδ = [0.0,0.003,0.0,-0.005,0.0,0.0]
+vδ = [0.0,0.115,0.0,-0.115,0.0,0.0]
+#vδ = zeros(6)
 vT = [40.0,40.0,40.0,40.0,40.0,40.0]
 function control_affect(integrator)
     s = integrator.t
@@ -36,33 +37,42 @@ terminate_cb2 = ContinuousCallback(terminate_condition2,terminate_affect!)
 ############################################################################
 #########################       Simulation     ############################# 
 ############################################################################
-function simulate()
-    base_car_params = [800.0,50.0,1.2,1.5,9.81,4.0,4.0,1.0,0.0]
-    p = [base_car_params, straightTrack]
-    x0 = [0.0,0.0,0.0,6.0,0.0,0.0,0.0,40.0]
-    tspam = (0.0,smid[6])  
 
-    #cbs = CallbackSet(terminate_cb2,control_cb)
-    cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
-    #prob = ODEProblem(vehicle_model_s,x0,tspam,base_car_params)
-    prob = ODEProblem(model_s,x0,tspam,p)
+base_car_params = [800.0,50.0,1.2,1.5,9.81,4.0,4.0,1.0,0.0]
+p = [base_car_params, chicaneTrack]
+x0 = [0.0,0.0,0.0,6.0,0.0,0.0,0.0,40.0]
+tspam = (0.0,smid[end])  
 
-    print("First simulation:")
-    @time global sol = solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=1.0)
-    print("Is second simulation faster:?")
-    @time solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=1.0)
+#cbs = CallbackSet(control_cb)
+cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
+#prob = ODEProblem(vehicle_model_s,x0,tspam,base_car_params)
+prob = ODEProblem(model_s,x0,tspam,p)
 
-    s = sol.t
-    n = sol[2,:]
-    θ = sol[3,:]
-    δ = sol[7,:]
-    T = sol[8,:]
-    global s_ = [s,n,θ]
+print("First simulation is slow:")
+@time sol = solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=1.0)
 
-
-    global figure_t = plot_traj_on_track(s_,chicaneTrack)
-    display(figure_t)
-    return sol
+"""
+print("Loop 100 simulations:")
+@time for i =1:100
+    solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=1.0)
+    print(Threads.threadid())
 end
 
-simulate()
+print("100 simulations in paralell threads:")
+@time Threads.@threads for i =1:100
+    solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=1.0)
+    print(Threads.threadid())
+end
+# I have set VSCode to use julia up to 6 Threads. Speed increase is only x2
+"""
+
+s = sol.t
+n = sol[2,:]
+θ = sol[3,:]
+δ = sol[7,:]
+T = sol[8,:]
+s_ = [s,n,θ]
+
+
+figure_t = plot_traj_on_track(s_,chicaneTrack)
+display(figure_t)

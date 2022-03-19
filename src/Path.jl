@@ -80,15 +80,17 @@ function arc(s,r,dir,x0,s0=0)
         θ = θ0 + s/r
         x = xc + r*cos(offs + θ)
         y = yc + r*sin(offs + θ)
+        κ = 1/r
     else #Clockwise
         xc = x0 + r*sin(θ0)
         yc = y0 - r*cos(θ0)
         offs = pi/2
         θ = θ0 - s/r
         x = xc + r*cos(offs + θ)
-        y = yc + r*sin(offs + θ)  
+        y = yc + r*sin(offs + θ) 
+        κ = -1/r 
     end
-    κ = 1/r
+    
     return [x,y,θ,κ]
 end
 
@@ -251,11 +253,11 @@ barcelona = [
 
 barcelonaTrack=Track(barcelona,3)
 chicane = [
-    [0, 50, 0, -1],
+    [0, 20, 0, -1],
     [1, pi/2, 20, 0],
     [0, 5, 0, -1],
     [1, pi/2, 20, 1],
-    [0, 50, 0, -1]
+    [0, 10, 0, -1]
 ]
 chicaneTrack = Track(chicane)
 straight_s = [

@@ -11,9 +11,7 @@ Developing a library in Julia for Race Car Optimal Lap Time simulation, based on
 You **MUST** finish the first item of every chapter before going to any second item. 
 
 1. Develop vehicle model.
-    1. Basic bycycle model. Solved by DifferentialEquations.
-    2. Try ModelinkToolkit. Build component based vehicle. Wheels - chassis ...
-    3. Try Modia. Repeat same as 1.2.  
+    1. Basic bycycle model. Solved by DifferentialEquations.  
 2. Develop road model.
     1. 2D, equal road width in all track., only staights and arcs.
     2. Making it easy to build new tracks.
