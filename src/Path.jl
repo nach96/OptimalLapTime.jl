@@ -1,9 +1,65 @@
+############################################################################
+########################       Track Object       ##########################
+############################################################################
+"""
+Track: Object defining a racing track.
+# Fields
+- sectors: Array of sectors defining the track. [type,length/sweep,radius,direction]
+- xmid: Vector of x location between sectors
+- smid: Vector of s (global displacement) between sectors
+- n: Track width.
+"""
+struct Track
+    sectors
+    xmid
+    smid
+    n
+end
+
+"""get_xsmid(sections)
+Get x coordinates in between sectors.
+Get global s in between sectors.
+"""
+function get_xsmid(sectors)
+    x0 = [0.0,0.0,0.0]
+    s0 = 0.0
+    s1 = 0.0
+    x = [x0]
+    s = [s0]
+    for section in sectors
+        if section[1]==0
+            s1 += section[2]
+            x1 = straight(s1,0,x0,s0)
+        else
+            s1 += section[2]*section[3]
+            x1 = arc(s1,section[3],section[4],x0,s0)
+        end
+        push!(x,x1)
+        push!(s,s1)
+        s0 = s1
+        x0 = x1
+    end
+    return x,s
+end
+get_xmid(sectors) = get_xsmid(sectors)[1]
+get_smid(sectors) = get_xsmid(sectors)[2]
+
+function Track(sectors)
+    x0,s0 = get_xsmid(sectors)
+    n=1.5
+    return Track(sectors,x0,s0,n)    
+end
+function Track(sectors,n)
+    x0,s0 = get_xsmid(sectors)
+    return Track(sectors,x0,s0,n)
+end
+
 
 #################################################################################
-###########################    Path elements    #################################
+###########################    Track elements    ################################
 #################################################################################
 
-function straight(m,x0,s0,s)
+function straight(s,m,x0,s0=0)
     x0,y0,θ0 = x0
     s = s-s0
     θ = θ0 + m
@@ -13,10 +69,9 @@ function straight(m,x0,s0,s)
     return [x,y,θ,κ]
 end
 
-#TODO: Not working fine.
-function arc(r,dir,x0_,s0,s_)
-    x0,y0,θ0 = x0_
-    s = s_-s0
+function arc(s,r,dir,x0,s0=0)
+    x0,y0,θ0 = x0
+    s = s-s0
 
     if dir == 0 #Anticlockwise
         xc = x0 - r*sin(θ0)
@@ -31,10 +86,34 @@ function arc(r,dir,x0_,s0,s_)
         offs = pi/2
         θ = θ0 - s/r
         x = xc + r*cos(offs + θ)
-        y = yc + r*sin(offs + θ)
-        
+        y = yc + r*sin(offs + θ)  
     end
     κ = 1/r
+    return [x,y,θ,κ]
+end
+
+
+############################################################################
+########################       Track functions    ##########################
+############################################################################
+function get_x(track,s)
+    sf = track.smid[end]
+    s0 = track.smid
+    x0 = track.xmid
+    sectors = track.sectors
+    i = 1
+
+    i = findmin(abs.(s0.-s))[2]
+    s>=s0[i] ? i=i : i -= 1
+
+    if(s>=sf)
+        return x0[end]
+    end
+    if sectors[i][1] == 0
+        x,y,θ,κ = straight(s,0,x0[i],s0[i])
+    else
+        x,y,θ,κ = arc(s,sectors[i][3],sectors[i][4],x0[i],s0[i])
+    end
     return [x,y,θ,κ]
 end
 
@@ -47,24 +126,24 @@ end
     - path = Reference path
 # Output
     - [x,y,Ψ] Vehicle location in cartesian coordinates
-
 """
-function cartesian(s_,path)
+function cartesian(track,s_)
     s,n,μ = s_
-    xc,yc,θ = path(s)
+    xc,yc,θ = get_x(track,s)
     x = xc - n*sin(θ)
     y = yc + n*cos(θ)
     Ψ = θ + μ
     return [x,y,Ψ]
 end
 
-function path_coordinates(path)
-    s = 0:0.1:100
+function track_coordinates(track)
+    sf = track.smid[end]
+    s = 0:0.1:sf
     x_log = []
     y_log = []
     θ_log = []
     for si in s
-        x,y,θ = path(si)
+        x,y,θ = get_x(track,si)
         push!(x_log, x)
         push!(y_log, y)
         push!(θ_log,θ)
@@ -75,13 +154,13 @@ end
 """
 Vehicle trajectory
 """
-function traj_coordinates(s_,path)
+function traj_coordinates(track, s_)
     x_log=[]
     y_log= []
     s,n,θ = s_
     idx=1
     for si in s
-        x,y = cartesian([si,n[idx],θ[idx]],path)
+        x,y = cartesian(track,[si,n[idx],θ[idx]])
         idx+=1
         push!(x_log, x)
         push!(y_log, y)
@@ -89,16 +168,18 @@ function traj_coordinates(s_,path)
     return [x_log,y_log]
 end
 
-function lanes_coordinates(path)
-    s = 0:0.1:100
-    n = 1.5
+
+function lanes_coordinates(track)
+    sf = track.smid[end]
+    s = 0:0.1:sf
+    n = track.n
     x_left=[]
     y_left = []
     x_right=[]
     y_right=[]
     for si in s
-        x_l,y_l = cartesian([si,n,0],path)
-        x_r,y_r= cartesian([si,-n,0],path)
+        x_l,y_l = cartesian(track,[si,n,0])
+        x_r,y_r= cartesian(track,[si,-n,0])
         push!(x_left, x_l)
         push!(y_left, y_l)
         push!(x_right, x_r)
@@ -107,125 +188,77 @@ function lanes_coordinates(path)
     return [x_left,y_left,x_right,y_right]
 end
 
-#################################################################################
-###########################    Path examples    #################################
-#################################################################################
 
-"""path1(s)
-# Arguments
-    - s = Path distance traveled
-Return [x,y,θ] for a given s.
-Built with straights and arcs.
-TODO: Fix arcs. Something not working fine.
-"""
-function path1(s)
-    #Define road sections
-    m0=0        #Straight
-    r1=10        #Circle
-    #m2=pi/2     #Stright
-    m2=0
+############################################################################
+########################       Track examples     ##########################
+############################################################################
+# Track descriptor information:
+# [type,length/sweep,radius,direction]
+# type:      0 - straight, 1 - corner
+# direction: 0 - left, 1 - right
+oval = [
+        [0, 150, 0, -1],
+        [1, pi / 2, 50, 0],
+        [0, 100, 0, -1],
+        [1, pi / 2, 90, 0],
+        [0, 300, 0, -1],
+        [1, pi / 2, 50, 0],
+        [0, 100, 0, -1],
+        [1, pi / 2, 90, 0],
+        [0, 155, 0, -1],
+    ]
 
-    s0 = 0
-    s1 = s0 + 10
-    s2 = s1 + r1*pi/2 
-    s3 = s2 + 1
-    s4 = s3 + r1*pi/2
-    s5 = s4 + 20
+ovalTrack = Track(oval)    
+barcelona = [
+        [0, 927, 0, -1],
+        [1, 1.48, 40, 1],
+        [0, 32, 0, -1],
+        [1, 1.04, 50, 0],
+        [0, 87, 0, -1],
+        [1, 1.10, 104, 1],
+        [0, 30, 0, -1],
+        [1, 1.60, 150, 1],
+        [0, 263, 0, -1],
+        [1, 1.48, 44, 1],
+        [0, 10, 0, -1],
+        [1, 1.56, 100, 1],
+        [0, 177, 0, -1],
+        [1, 2.54, 42, 0],
+        [0, 130, 0, -1],
+        [1, 0.55, 150, 0],
+        [0, 115, 0, -1],
+        [1, 1.48, 52, 0],
+        [0, 45, 0, -1],
+        [1, 0.4, 100, 1],
+        [0, 181, 0, -1],
+        [1, 1.72, 85, 1],
+        [0, 505, 0, -1],
+        [1, 2.60, 34, 0],
+        [0, 100, 0, -1],
+        [1, 0.8, 30, 0],
+        [0, 10, 0, -1],
+        [1, 3.20, 60, 1],
+        [0, 135, 0, -1],
+        [1, 1.40, 30, 1],
+        [0, 100, 0, -1],
+        [1, 1.65, 25, 0],
+        [0, 10, 0, -1],
+        [1, 1.50, 33, 1],
+        [0, 74.84, 0, -1],
+        [1, 1.503, 90, 1],
+        [0, 142.0, 0, -1],
+    ]
 
-    #Pre-calculate end points of every step:
-    x0 = [0,0,0]
-    x1 = straight(m0,x0,s0,s1)
-    x2 = arc(r1,0,x1,s1,s2)
-    x3 = straight(m2,x2,s2,s3)
-    x4 = arc(r1,1,x3,s3,s4)
-    x5 = straight(m0,x4,s4,s5)
-
-    if s<s1
-        x,y,θ,κ = straight(m0,x0,s0,s)
-    elseif s<s2
-        x,y,θ,κ = arc(r1,0,x1,s1,s)
-    elseif s<s3
-        x,y,θ,κ = straight(m2,x2,s2,s)
-    elseif s<s4
-        x,y,θ,κ = arc(r1,1,x3,s3,s)
-    elseif s<s5
-        x,y,θ,κ = straight(m0,x4,s4,s)
-    else
-        x,y,θ,κ = x4
-    end
-    return [x,y,θ,κ]
-end
-
-"""path2(s)
-Return [x,y,θ] for a given s.
-Built only with straight lines
-"""
-function path2(s)
-    m0 = 0
-    m1 = pi/4
-    m2 = pi/4
-    m3 = pi/4
-    m4 = pi/4
-
-    s0 = 0
-    s1 = s0 + 10
-    s2 = s1 + 2
-    s3 = s2 + 8
-    s4 = s3 + 2
-    s5 = s4 + 10
-
-    x0 = [0,0,0]
-    x1 = straight(m0,x0,s0,s1)
-    x2 = straight(m1,x1,s1,s2)
-    x3 = straight(m2,x2,s2,s3)
-    x4 = straight(m3,x3,s3,s4)
-    x5 = straight(m4,x4,s4,s5)
-
-    if s<s1
-        x,y,θ,κ = straight(m0,x0,s0,s)
-    elseif s<s2
-        x,y,θ,κ = straight(m1,x1,s1,s)
-    elseif s<s3
-        x,y,θ,κ = straight(m2,x2,s2,s)
-    elseif s<s4
-        x,y,θ,κ = straight(m3,x3,s3,s)
-    elseif s<s5
-        x,y,θ,κ= straight(m4,x4,s4,s)
-    else
-        x,y,θ,κ = x5
-    end
-    return [x,y,θ,κ]
-end
-
-function f_path3(s)
-    r0=20
-    
-    s0 = 0
-    s1 = 2*pi*r0
-
-    x0 =[0,0,0]
-    x1 = arc(r0,0,x0,s0,s1)
-    if(s<s1)
-        x,y,θ,κ = arc(r0,1,x0,s0,s)
-    else
-        x,y,θ,κ = x1
-    end
-    return [x,y,θ,κ]
-end
-
-#TODO:
-# Make paths way more generic. Idea:
-
-"""
-struct path3
-    parts = [0, 1, 0, 2] #0=straight, 1=arc Clockwise; 2=arc counterclw
-    coefs = [m0,r1,...]
-    len_s = [s0,s1,...]
-    s_max = sum(len_s)
-end
-
-#generic path(data,s) function
-function path(data,s)
-
-end
-"""
+barcelonaTrack=Track(barcelona,3)
+chicane = [
+    [0, 50, 0, -1],
+    [1, pi/2, 20, 0],
+    [0, 5, 0, -1],
+    [1, pi/2, 20, 1],
+    [0, 50, 0, -1]
+]
+chicaneTrack = Track(chicane)
+straight_s = [
+    [0,50,0,-1]
+]
+straightTrack = Track(straight_s)

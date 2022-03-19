@@ -1,6 +1,8 @@
 using DifferentialEquations
+using Symbolics
+using StaticArrays
 include("Path.jl") #Path related functions
-include("BirdView.jl")
+#include("BirdView.jl")
 
 ############################################################################
 ########################       Time Domain Model  ##########################
@@ -18,8 +20,8 @@ Vehicle ODE in Time Domain
 """
 #function vehicle_model(x,u,p,t)
 function vehicle_model(x,p,t)
-    s,n,μ,vx,vy,r,δ,T,κ = x; 
-    m,Iz,lR,lF,g,Ksf,Ksr,Cr = p;
+    s,n,μ,vx,vy,r,δ,T = x; 
+    m,Iz,lR,lF,g,Ksf,Ksr,Cr,κ = p;
 
     #Traction force, applied on center of gravity.
     Fx = T-Cr*vx^2; # TODO: Include rolling resisntance and aerodynamic drag. Fx = CmT − Cr0 − Cr2v2
@@ -42,100 +44,53 @@ function vehicle_model(x,p,t)
     # Expanded state vector to include inputs. For saving and callback
     dδ=0
     dT=0
-    dκ=0
 
-    return [ds,dn,dμ,dvx,dvy,dr,dδ,dT,dκ]
+    return [ds,dn,dμ,dvx,dvy,dr,dδ,dT]
 end
 
-#Simulate vehicle (time domain)
-"""pure_pursuit()
-"""
-function pure_pursuit(s_,path;preview=3.0,K=0.1,δ_max=0.3,Kv=100.0)
-    s,n,μ,vx = s_
-    vehicle_pose = cartesian(s_,path)
-    preview_pose = path(s+preview)
-    dx = preview_pose[1]-vehicle_pose[1]
-    dy = preview_pose[2]-vehicle_pose[2]
-    α=atan(dy,dx)
-    L=sqrt(dx^2+dy^2)
-    Ly = L*sin(α-μ)
-    δ = K*Ly
-    -δ_max < δ < δ_max ? δ=δ : δ=sign(δ)*δ_max
-    T = Kv*(10-vx)
-    κ=path(s)[4]
-    return SA[δ::Float64,T::Float64,κ::Float64]
-end
+############################################################################
+####################     Generate Space Domain Model     ###################
+############################################################################
 
-function simulate_vehicle_t() 
-    base_car_params = [800,50,1.2,1.5,9.81,4,4,1]
-    x0=[0,0,0,6,0,0,0,0,0]
-    tspam = (0.0,8.0)
+@variables s,n,μ,vx,vy,r,ts,δ,T
+@variables m,Iz,lR,lF,g,Ksf,Ksr,Cr,κ
 
-    #Be carefull! Need to define pp parameters in a scope reachable by preiodic_pure_pursuit. I have been unable to put it as argument.
-    pp = [0.2,4,0.3,40,path1]
-    function periodic_pure_pursuit(integrator)
-        #pp = [0.2,4,0.3,40,path1]
+u = [δ,T]
+x = [s,n,μ,vx,vy,r]
+x = vcat(x,u) #Input variables included in the state vector. To be saved and able to modify them with callbacks.
+p = [m,Iz,lR,lF,g,Ksf,Ksr,Cr,κ]
 
-        K,preview,δ_max,Kv,path = pp
-        s,n,μ,vx = integrator.u[1:4]
-        u = pure_pursuit([s,n,μ,vx],path;K=K,preview=preview,δ_max=δ_max,Kv=Kv)
-        
-        integrator.u[7] = u[1]
-        integrator.u[8] = u[2]
-        integrator.u[9] = u[3]
-        #integrator.u[7] = 0.0
-        #integrator.u[8] = 0.0
-        #integrator.u[9] = u[3]
-    end
-    control_cb = PeriodicCallback(periodic_pure_pursuit,0.1)
+dx = vehicle_model(x,p,ts)
 
-    #End simulation if out of the road or vehicle speed <=0
-    terminate_condition(u,t,integrator) = abs(u[2])-3
-    terminate_condition2(u,t,integrator) = u[4]
-    terminate_affect!(integrator) = terminate!(integrator)
-    terminate_cb = ContinuousCallback(terminate_condition,terminate_affect!)
-    terminate_cb2 = ContinuousCallback(terminate_condition2,terminate_affect!)
+#Get derivatives from s. Chain rule: dx/dt = dx/ds·ds/dt
+dxds = dx.*1/dx[1]
+dxds[1] = 1/dx[1] #We dont need state s. (It is now the independent variable.) Set time as first state.
 
-    #cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
-    cbs = CallbackSet(terminate_cb2,control_cb)
-
-    prob = ODEProblem(vehicle_model,x0,tspam,base_car_params)
-    #prob = ODEProblem(ol_ctrl_vehicle,x0,tspam,base_car_params)
-
-    @time global sol = solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=0.01) #[ds,dn,dμ,dvx,dvy,dr]
-    #return sol
-    s = sol[1,:]
-    n = sol[2,:]
-    θ = sol[3,:]
-    δ = sol[7,:]
-    T = sol[8,:]
-    global s_ = [s,n,θ]
-    global figure_t = plot_traj_on_track(s_,path1)
-    display(figure_t)
-    return sol
-end
-
-sol_t = simulate_vehicle_t()
+#Generate a function from symbolic expression
+model_func = build_function(dxds,[s,n,μ,vx,vy,r,δ,T],[m,Iz,lR,lF,g,Ksf,Ksr,Cr,κ],s)
 
 
-#=
-# Idea: Input symbolic values to time domain model, then derivatives will be symbolics as well, and apply chain rule to them to get space domain model.
-# This should be pre-process or done every step??
-# Then, only modifying time domain model, automatically you have space domain one.
-"""vehicle_model(x,u,t)
+"""vehicle_model_s(x,u,s)
 Vehicle ODE in Space Domain
 # Arguments
-    - x = [s,n,μ,vx,vy,r]
-        - s,n,μ = Absolute location in curvilinear coordinates.
-        - vx, vy, r = Velocities in inertial frame
-    - u = [δ, T] (Steering angle and Driving Torque).
-    - t = Time: Independent variable
+    -x = [t,n,μ,vx,vy,r,δ,T]
+        - t: Time
+        - n,μ: Lateral displacement and heading in curvilinear coordinates.
+        - vx,vy,r: Velocities in inertial frame.
+        - δ,T: Steering angle and Driving Torque.
+    - p = [m,Iz,lR,lF,g,Ksf,Ksr,Cr,κ]
+    - s: Travelled distance along centerline. Independent variable.
 """
-function vehicle_model_s(x,u,p,s)
-    
-    t = 1/ds #Be carefull, singularity if car stops (ds =0) Start with some speed.
+vehicle_model_s = eval(model_func[1])
 
-    ds,dn,dμ,dvx,dvy,dr = vehicle_model(x,u,p,t)
+"""
+Model combining track and vehicle. Getting κ from track.
+ - p = [car_p,track]
+    - car_p = [m,Iz,lR,lF,g,Ksf,Ksr,Cr,κ]
+"""
+function model_s(x,p,s)
+    track = p[2]
+    car_p = p[1]
+    car_p[end] = get_x(track,s)[4]
+    vehicle_model_s(x,car_p,s)
 end
-=#
-
