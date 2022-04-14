@@ -7,8 +7,8 @@ include("BirdView.jl")
 ############################################################################
 smid = chicaneTrack.smid
 s_control = smid
-vδ = [0.0,0.115,0.0,-0.115,0.0,0.0]
-#vδ = zeros(6)
+#vδ = [0.0,0.115,0.0,-0.115,0.0,0.0]
+vδ = zeros(6)
 vT = [40.0,40.0,40.0,40.0,40.0,40.0]
 function control_affect(integrator)
     s = integrator.t
