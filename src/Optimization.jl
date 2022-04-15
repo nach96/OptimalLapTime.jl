@@ -11,7 +11,6 @@ OptimizationProblem
     - x0: [t,n,μ,vx,vy,r,δ,T]
     - eval_functions: Array of different objetive funtions.
 """
-#Be careful. I think this shouldnt be mutable. Do two structs, one mutable for outputs one immutable for inputs
 mutable struct OptimizationProblem
     #Inputs
     model
@@ -19,13 +18,15 @@ mutable struct OptimizationProblem
     car_p
     x0
     eval_functions
-    #s_control
+    s_control
     Debug #flag (=1 to plot and log)
     #Outputs
-    #actions
+    actions
     fig
     Log #::Vector{Log_opt}
 end
+#TODO: Constructor with the minimum params. Set the calculated values inside.
+#Is it okey to have inputs and outputs in the same struct? Or is cleaner to set two.
 struct Log_opt
     actions
     solutions
@@ -39,67 +40,40 @@ end
 ############################################################################
 #####################            Simulation         ########################
 ############################################################################
-
-#=
-terminate_condition(u,t,integrator) = abs(u[2])-3
-terminate_condition2(u,t,integrator) = u[4]
-terminate_affect!(integrator) = terminate!(integrator)
-terminate_cb = ContinuousCallback(terminate_condition,terminate_affect!)
-terminate_cb2 = ContinuousCallback(terminate_condition2,terminate_affect!)
-
-SA_vδ = zeros(6)
-SA_vT =  zeros(6)
-SA_s_control = zeros(6)
-function control_affect(integrator)
-    s = integrator.t
-    i = findmin(abs.(SA_s_control.-s))[2]
-    T = SA_vT[i]
-    δ = SA_vδ[i]
-    integrator.u[7] = δ
-    integrator.u[8] = T
-    println("New action. s=",s,"; δ=",δ,"; T=",T)
-end
-control_cb = PresetTimeCallback(SA_s_control,control_affect)
-cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
-=#
-
 function setup_simulation(OP::OptimizationProblem)
-
+    #Terminal conditions
     terminate_condition(u,t,integrator) = abs(u[2])-3
     terminate_condition2(u,t,integrator) = u[4]
     terminate_affect!(integrator) = terminate!(integrator)
     terminate_cb = ContinuousCallback(terminate_condition,terminate_affect!)
     terminate_cb2 = ContinuousCallback(terminate_condition2,terminate_affect!)
-    
-    SA_vδ = zeros(6)
-    SA_vT =  zeros(6)
-    SA_s_control = zeros(6)
+
+    #Control
+    OP.s_control = OP.track.smid #This should go on the constructor.
+    OP.actions[1] = zeros(length(OP.s_control)) #idem
+    OP.actions[2] = zeros(length(OP.s_control))
     function control_affect(integrator)
         s = integrator.t
-        i = findmin(abs.(SA_s_control.-s))[2]
-        T = SA_vT[i]
-        δ = SA_vδ[i]
+        i = findmin(abs.(OP.s_control.-s))[2]
+        δ = OP.actions[1][i]
+        T = OP.actions[2][i]
         integrator.u[7] = δ
         integrator.u[8] = T
         println("New action. s=",s,"; δ=",δ,"; T=",T)
     end
-    control_cb = PresetTimeCallback(SA_s_control,control_affect)
+    control_cb = PresetTimeCallback(OP.s_control,control_affect)
     cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
-
-
-    SA_s_control[:] = OP.track.smid
-    control_cb = PresetTimeCallback(SA_s_control,control_affect)
-    cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
-
     tspam = (0.0,OP.track.smid[end])
     p = [OP.car_p, OP.track]
     prob = ODEProblem(OP.model,OP.x0,tspam,p)
-    return prob
+    return [prob,cbs]
 end
 
-function simulate(x,prob,OP)
-    SA_vδ[:] = x[1] #This should modify pointer of line 31, which goes into the control callback.
-    SA_vT[:] = x[2]
+function simulate(x,sim_set,OP)
+    OP.actions[1][:] = x[1]
+    OP.actions[2][:] = x[2]
+    prob=sim_set[1]
+    cbs=sim_set[2]
     sol = solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=1.0)
     return sol
 end
@@ -107,7 +81,7 @@ end
 ####################          Evaluation functions         #################
 ############################################################################
 
-#Evaluate the solution of a simulation.
+#Evaluation functions
 eval_t(sol) = sol[1,end]
 eval_s(sol,track) = track.smid[end] - sol.t[end]
 function eval_n(sol,track,Kn)
@@ -169,7 +143,7 @@ c: Temperature. (Optim step)
 L: Number of movements for every c
 """
 
-#Here only for  the midle sections, but could be the same for an s_control vector decided.
+#TODO: Here initial actions only for  the midle sections, but could be the same for an arbitrary s_control vector.
 function actions_centerline(track,car_p)
     vs = track.smid
     s_control = vs
@@ -185,7 +159,6 @@ end
 
 function SA_Cm(track,car_p)
     #Where do I decide how to divide the actions?
-    # A good start might be constant force to keep speed and steering to theoretically follow the arc center.
     return actions_centerline(track,car_p)
 end
 
@@ -202,7 +175,7 @@ SA_len(c) = 10 #(diapo 39)
 #Generate only one variation, and select it
 function SA_Nm(x,sol)
     x_new = copy(x) #Be careful! If you modify x_new, x will be modified. 
-    i = findmin(abs.(SA_s_control.-sol.t[end]))[2]
+    i = findmin(abs.(OP.s_control.-sol.t[end]))[2]
     nv = rand(1:i)
     n2 = rand((1,2))
     if (n2 ==2) #Modify torque
@@ -236,15 +209,15 @@ function metropolis(c,sol_new,sol_ref,OP)
 end
 
 #(diapo 33)
-function SA_process(c,L,x,OP,prob)
+function SA_process(c,L,x,OP,sim_set)
     println("Simulate")
-    sol=simulate(x,prob,OP)
+    sol=simulate(x,sim_set,OP)
     sol0 = deepcopy(sol)
     x0 = deepcopy(x)
     for l in L
         println("New iteration.")
         x_new = SA_Nm(x,sol)
-        sol_new = simulate(x_new,prob,OP)
+        sol_new = simulate(x_new,sim_set,OP)
         if metropolis(c,sol_new,sol,OP) 
             x=x_new
             sol=sol_new
@@ -276,14 +249,14 @@ Simulated Annealing
 #(diapo 33)
 function SA(OP::OptimizationProblem)
     println("Setup optimization")
-    prob = setup_simulation(OP)
+    sim_set = setup_simulation(OP)
     x=SA_Cm(OP.track,OP.car_p)
     c=SA_c0(OP.track)
     L=SA_len(c)
     x_opt = x
     println("Start optimization loop")
     while SA_stop_criteria(c) == false
-        x_opt =SA_process(c,L,x,OP,prob)
+        x_opt =SA_process(c,L,x,OP,sim_set)
         c=SA_cooling(c)
         L=SA_len(c)
         println("New step. c = ",c)

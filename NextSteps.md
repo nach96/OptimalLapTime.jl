@@ -44,3 +44,4 @@
     - Lines 31-36. Hay qye hacer algo mejor pa cambiar los callbacks sobre la marcha men.
     - Porque track de 5 pasa a 6
     - Modificar solo antes de salirte
+    - Parametrizar incremento máximo de acción en cada movimiento.

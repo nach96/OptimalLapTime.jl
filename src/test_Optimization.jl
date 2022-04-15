@@ -9,15 +9,18 @@ eval_f = [eval_t, eval_s]
 fig = plot()
 debug = true
 Log=[]
+s_control=[] #Maybe it is a good idea to set manually the s_control before defining the problem?
+actions=[[],[]]
 opt_chicane = OptimizationProblem(  #inputs
                                     model_s,
                                     chicaneTrack,
-                                    #barcelonaTrack,
                                     car_p,
                                     x0,
                                     eval_f,
+                                    s_control,
                                     debug,
-                                    #outputs                                    
+                                    #outputs
+                                    actions,                                  
                                     fig,
                                     Log
 )
@@ -27,7 +30,7 @@ OP = opt_chicane
 prob = setup_simulation(OP)
 x=SA_Cm(OP.track,OP.car_p)
 println(x)
-sol=simulate(x,prob)
+sol=simulate(x,prob,OP)
 =#
 
 actions = SA(opt_chicane)
@@ -47,6 +50,8 @@ s_ = [s,n,θ]
 figure_t = plot_traj_on_track(s_,chicaneTrack)
 display(figure_t)
 =#
+
+
 OP = opt_chicane
 vx=[]
 vsol=[]
