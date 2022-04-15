@@ -1,4 +1,4 @@
-include("Optimization.jl")
+include("SimulatedAnnealing.jl")
 include("BirdView.jl")
 include("Path.jl")
 
@@ -33,24 +33,7 @@ println(x)
 sol=simulate(x,prob,OP)
 =#
 
-actions = SA(opt_chicane)
-
-#=
-OP = opt_chicane
-prob = setup_simulation(OP)
-sol=simulate(actions,prob)
-s = sol.t
-n = sol[2,:]
-θ = sol[3,:]
-δ = sol[7,:]
-T = sol[8,:]
-s_ = [s,n,θ]
-
-
-figure_t = plot_traj_on_track(s_,chicaneTrack)
-display(figure_t)
-=#
-
+actions = optimize(opt_chicane,SA)
 
 OP = opt_chicane
 vx=[]

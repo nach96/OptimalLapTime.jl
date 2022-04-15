@@ -1,4 +1,7 @@
 include("CarSim.jl")
+"""
+Base Optimization functions.
+"""
 ############################################################################
 ################     Generic Optimization Problem          #################
 ############################################################################
@@ -38,6 +41,13 @@ struct eval_st
 end
 
 ############################################################################
+####################        Optimization Algorithms         ################
+############################################################################
+function optimize(OP::OptimizationProblem,method)
+    method(OP)
+end
+
+############################################################################
 #####################            Simulation         ########################
 ############################################################################
 function setup_simulation(OP::OptimizationProblem)
@@ -59,7 +69,7 @@ function setup_simulation(OP::OptimizationProblem)
         T = OP.actions[2][i]
         integrator.u[7] = δ
         integrator.u[8] = T
-        println("New action. s=",s,"; δ=",δ,"; T=",T)
+        #println("New action. s=",s,"; δ=",δ,"; T=",T)
     end
     control_cb = PresetTimeCallback(OP.s_control,control_affect)
     cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
@@ -80,7 +90,6 @@ end
 ############################################################################
 ####################          Evaluation functions         #################
 ############################################################################
-
 #Evaluation functions
 eval_t(sol) = sol[1,end]
 eval_s(sol,track) = track.smid[end] - sol.t[end]
@@ -96,8 +105,8 @@ function eval_n(sol,track,Kn)
     return cost
 end
 function evaluate(sol,OP)
-    J_t = eval_t(sol)
     J_s = eval_s(sol,OP.track)
+    J_t = eval_t(sol)
     return [J_s,J_t]
 end
 function is_better_sol(sol_new,sol_ref,OP)
@@ -115,8 +124,8 @@ function is_better_sol(sol_new,sol_ref,OP)
         end
         return one_improves
     =#
-    J_tnew,J_snew = evaluate(sol_new,OP)
-    J_tref,J_sref = evaluate(sol_ref,OP)
+    J_snew,J_tnew = evaluate(sol_new,OP)
+    J_sref,J_tref = evaluate(sol_ref,OP)
     better = false
     
     if J_snew < J_sref
@@ -128,21 +137,8 @@ function is_better_sol(sol_new,sol_ref,OP)
 end
 
 ############################################################################
-####################        Optimization Algorithms         ################
+####################           Initial solution            #################
 ############################################################################
-
-function optimize(OP::OptimizationProblem,method)
-    method(OP)
-end
-
-"""
-Cm: Function to generate starting state
-Nm: Function to generate neighbourhood
-Sm: Function to select a solution among the neighbourhood
-c: Temperature. (Optim step)
-L: Number of movements for every c
-"""
-
 #TODO: Here initial actions only for  the midle sections, but could be the same for an arbitrary s_control vector.
 function actions_centerline(track,car_p)
     vs = track.smid
@@ -156,114 +152,9 @@ function actions_centerline(track,car_p)
     return [vδ,vT]
 end
 
-
-function SA_Cm(track,car_p)
-    #Where do I decide how to divide the actions?
-    return actions_centerline(track,car_p)
-end
-
-# c0 = eval_max - eval_min (diapo 37)
-# Considering only first pareto front: traveled distance s.
-function SA_c0(track)
-    c0 = track.smid[end]
-    return c0
-end
-SA_cooling(c) = c*0.95 #(diapo 38)
-SA_len(c) = 10 #(diapo 39)
-
-#Neighbour generation. Check NextSteps.md
-#Generate only one variation, and select it
-function SA_Nm(x,sol)
-    x_new = copy(x) #Be careful! If you modify x_new, x will be modified. 
-    i = findmin(abs.(OP.s_control.-sol.t[end]))[2]
-    nv = rand(1:i)
-    n2 = rand((1,2))
-    if (n2 ==2) #Modify torque
-        Δx = rand()*20-10
-    else #modify steering angle
-        Δx = rand()*0.1-0.05
-    end
-    println("Generating neighbour. n2=",n2,"; nv=",nv)
-    x_new[n2][nv]+= Δx
-    return x_new
-end
-#acceptance criteria. Diapo 32 y 61
-function metropolis(c,sol_new,sol_ref,OP)
-    accepted = false
-    if is_better_sol(sol_new,sol_ref,OP)
-        #accepted = true
-        P=1
-    else
-        J_tnew,J_snew = evaluate(sol_new,OP)
-        J_tref,J_sref = evaluate(sol_ref,OP)
-        if J_snew > J_sref
-            ΔE = (J_snew-J_sref)*10
-        elseif J_snew==J_sref
-            ΔE = J_tnew-J_tref
-        end
-        P = exp(-ΔE/c) #Probability of accepting wrong solution [0:1] 
-    end
-    rand()<=P ? accepted=true : accepted=false
-    println("P=",P,"; Accepted=",accepted)
-    return accepted
-end
-
-#(diapo 33)
-function SA_process(c,L,x,OP,sim_set)
-    println("Simulate")
-    sol=simulate(x,sim_set,OP)
-    sol0 = deepcopy(sol)
-    x0 = deepcopy(x)
-    for l in L
-        println("New iteration.")
-        x_new = SA_Nm(x,sol)
-        sol_new = simulate(x_new,sim_set,OP)
-        if metropolis(c,sol_new,sol,OP) 
-            x=x_new
-            sol=sol_new
-        end
-    end
-    if is_better_sol(sol,sol0,OP)!
-        x=x0
-    else
-        println("Accepted solution. New actions=",x)
-        if(OP.Debug)
-
-            log = Log_opt(x,sol,evaluate(sol,OP))
-            push!(OP.Log,log)
-            plot_op(sol,OP)
-        end
-    end
-    return x
-end
-
-function SA_stop_criteria(c)
-    stop = false
-    c<0.1 ? stop=true : stop=false
-    return stop
-end
-
-"""
-Simulated Annealing
-"""
-#(diapo 33)
-function SA(OP::OptimizationProblem)
-    println("Setup optimization")
-    sim_set = setup_simulation(OP)
-    x=SA_Cm(OP.track,OP.car_p)
-    c=SA_c0(OP.track)
-    L=SA_len(c)
-    x_opt = x
-    println("Start optimization loop")
-    while SA_stop_criteria(c) == false
-        x_opt =SA_process(c,L,x,OP,sim_set)
-        c=SA_cooling(c)
-        L=SA_len(c)
-        println("New step. c = ",c)
-    end
-    return x_opt
-end
-
+############################################################################
+#########################           Plot OP              ###################
+############################################################################
 function plot_op(sol,OP)
     s = sol.t
     n = sol[2,:]
