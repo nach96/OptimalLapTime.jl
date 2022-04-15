@@ -38,3 +38,9 @@
     - But it mtight be slower  than heuristics defined above. Implement a local search algorithm with those heuristics.
 
     - No pensar en búsqueda tabú hasta que los dos métodos anteriores estén funcionando. Entonces pensar en ella como una heurística para guiar las soluciones propuestas por dichos métodos.
+
+## Code improvements
+    - solve needs to specify callbacks and so on every time?
+    - Lines 31-36. Hay qye hacer algo mejor pa cambiar los callbacks sobre la marcha men.
+    - Porque track de 5 pasa a 6
+    - Modificar solo antes de salirte

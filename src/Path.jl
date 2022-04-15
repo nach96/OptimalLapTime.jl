@@ -21,7 +21,7 @@ Get x coordinates in between sectors.
 Get global s in between sectors.
 """
 function get_xsmid(sectors)
-    x0 = [0.0,0.0,0.0]
+    x0 = [0.0,0.0,0.0,0.0]
     s0 = 0.0
     s1 = 0.0
     x = [x0]

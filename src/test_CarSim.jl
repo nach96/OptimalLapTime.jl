@@ -5,11 +5,11 @@ include("BirdView.jl")
 ############################################################################
 ####################            Control callback         ###################
 ############################################################################
-smid = chicaneTrack.smid
-s_control = smid
-#vδ = [0.0,0.115,0.0,-0.115,0.0,0.0]
-vδ = zeros(6)
-vT = [40.0,40.0,40.0,40.0,40.0,40.0]
+#smid = chicaneTrack.smid
+vδ=zeros(6)
+vT=40.0*ones(6)
+s_control = zeros(6)
+
 function control_affect(integrator)
     s = integrator.t
     #i = indexin(s,s_control)
@@ -21,7 +21,6 @@ function control_affect(integrator)
     #print("Triggered on s: ",s,". T= ", T, " ,δ= ",δ)
 end
 control_cb = PresetTimeCallback(s_control,control_affect)
-
 
 ############################################################################
 #####################       Ending conditions       ########################
@@ -38,19 +37,34 @@ terminate_cb2 = ContinuousCallback(terminate_condition2,terminate_affect!)
 #########################       Simulation     ############################# 
 ############################################################################
 
-base_car_params = [800.0,50.0,1.2,1.5,9.81,4.0,4.0,1.0,0.0]
-p = [base_car_params, chicaneTrack]
-x0 = [0.0,0.0,0.0,6.0,0.0,0.0,0.0,40.0]
-tspam = (0.0,smid[end])  
+function setup_sim()
+    base_car_params = [800.0,50.0,1.2,1.5,9.81,4.0,4.0,1.0,0.0]
+    p = [base_car_params, chicaneTrack]
+    x0 = [0.0,0.0,0.0,6.0,0.0,0.0,0.0,40.0]
+    tspam = (0.0,smid[end])  
 
-#cbs = CallbackSet(control_cb)
-cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
-#prob = ODEProblem(vehicle_model_s,x0,tspam,base_car_params)
-prob = ODEProblem(model_s,x0,tspam,p)
+    s_control[:] = chicaneTrack.smid
+    control_cb = PresetTimeCallback(s_control,control_affect)
+    cbs = CallbackSet(terminate_cb,terminate_cb2,control_cb)
 
-print("First simulation is slow:")
-@time sol = solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=1.0)
+    #prob = ODEProblem(vehicle_model_s,x0,tspam,base_car_params)
+    prob = ODEProblem(model_s,x0,tspam,p)
+    return prob
+end
 
+############################################################################
+#####################     Control variables     ############################ 
+############################################################################
+function solve_test(prob)
+    print("First simulation is slow:")
+    vδ[:] = [0.0,0.115,0.0,-0.12,0.0,0.0]
+    vT[:] = [40.0,40.0,40.0,40.0,40.0,40.0]
+    @time sol = solve(prob; callback=cbs, alg = Tsit5(),reltol=1e-7,dtmax=1.0)
+    return sol
+end
+prob = setup_sim()
+sol = solve_test(prob)
+print(s_control)
 """
 print("Loop 100 simulations:")
 @time for i =1:100

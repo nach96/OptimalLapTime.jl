@@ -91,6 +91,7 @@ Model combining track and vehicle. Getting κ from track.
 function model_s(x,p,s)
     track = p[2]
     car_p = p[1]
-    car_p[end] = get_x(track,s)[4]
+    car_p[end] = get_x(track,s)[4] #Set κ
     vehicle_model_s(x,car_p,s)
 end
+
