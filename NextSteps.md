@@ -37,12 +37,18 @@
         - However, some of the restrictions to electable solutions can be applied as well.
     - But it mtight be slower  than heuristics defined above. Implement a local search algorithm with those heuristics.
 
-    - No pensar en búsqueda tabú hasta que los dos métodos anteriores estén funcionando. Entonces pensar en ella como una heurística para guiar las soluciones propuestas por dichos métodos.
+    - No pensar en búsqueda tabú hasta que los dos métodos anteriores estén funcionando. Entonces pensar en ella como una heurística para guiar las soluciones propuestas por dichos métodos
+"""
+Cm: Function to generate starting state
+Nm: Function to generate neighbourhood
+Sm: Function to select a solution among the neighbourhood
+c: Temperature. (Optim step)
+L: Number of movements for every c
+"""
 
 ## Code improvements
-    - solve needs to specify callbacks and so on every time?
-    - Lines 31-36. Hay qye hacer algo mejor pa cambiar los callbacks sobre la marcha men.
-    - Porque track de 5 pasa a 6
-    - Modificar solo antes de salirte
-    - Parametrizar incremento máximo de acción en cada movimiento.
     - Make code into modules, instead of only files.
+    - Mira a ver si el tema de las copias se puede hacer mejor
+    ok- Parametrizar el optimizador.
+    ok- Cambiar discretizaciones
+    - Usar eval_n

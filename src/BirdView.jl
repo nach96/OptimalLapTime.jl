@@ -13,7 +13,9 @@ function plot_centerline(track,figure=plot())
                     color = :black, 
                     linestyle = :dot,
                     lw=2,
-                    label="Centerline")
+                    label=false)
+                    #label="Centerline")
+                    
     return figure
 end
 
@@ -25,13 +27,13 @@ end
 
 function plot_lanes(track,figure=plot())
     x_left, y_left, x_right, y_right = lanes_coordinates(track)
-    figure = plot!(figure,x_left,y_left, color = :blue,label= "Lanes")
-    figure = plot!(figure,x_right,y_right, color = :blue, label="Lanes")
+    figure = plot!(figure,x_left,y_left, color = :blue,label=false)#,label= "Lanes")
+    figure = plot!(figure,x_right,y_right, color = :blue,label=false)#, label="Lanes")
     return figure
 end
 
-function plot_road(track)
-    figure = plot_centerline(track)
+function plot_road(track,figure=plot())
+    figure = plot_centerline(track,figure)
     figure = plot_lanes(track,figure)
     return figure
 end
@@ -43,12 +45,12 @@ end
 
 function plot_traj(s_,track,figure=plot())
     x,y= traj_coordinates(track,s_)
-    figure = plot!(figure,x,y, color = :red, label="Trajectory")
+    figure = plot!(figure,x,y, color = :red,label=false)#, label="Trajectory")
     return figure
 end
 
 function plot_traj_on_track(s_,track,figure=plot())
-    figure = plot_road(track)
+    figure = plot_road(track,figure)
     figure = plot_traj(s_,track,figure)
     return figure
 end

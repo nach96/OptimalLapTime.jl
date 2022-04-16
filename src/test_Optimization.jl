@@ -9,8 +9,11 @@ eval_f = [eval_t, eval_s]
 fig = plot()
 debug = true
 Log=[]
-s_control=[] #Maybe it is a good idea to set manually the s_control before defining the problem?
+#s_control= chicaneTrack.smid #This should go on the constructor.
+s_control = [0,5,10,15,20,30,40,51.41,56.41,66,76,87.83,92,97.83]
 actions=[[],[]]
+actions_start=[]
+sa_par = SA_params(0.9,0.1,10,[0.05,10.0],actions_start)
 opt_chicane = OptimizationProblem(  #inputs
                                     model_s,
                                     chicaneTrack,
@@ -18,6 +21,7 @@ opt_chicane = OptimizationProblem(  #inputs
                                     x0,
                                     eval_f,
                                     s_control,
+                                    sa_par,
                                     debug,
                                     #outputs
                                     actions,                                  
@@ -28,7 +32,7 @@ opt_chicane = OptimizationProblem(  #inputs
 #=
 OP = opt_chicane
 prob = setup_simulation(OP)
-x=SA_Cm(OP.track,OP.car_p)
+x=SA_Cm(OP)
 println(x)
 sol=simulate(x,prob,OP)
 =#

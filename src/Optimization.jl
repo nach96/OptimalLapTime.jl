@@ -22,6 +22,7 @@ mutable struct OptimizationProblem
     x0
     eval_functions
     s_control
+    opt_params
     Debug #flag (=1 to plot and log)
     #Outputs
     actions
@@ -59,7 +60,6 @@ function setup_simulation(OP::OptimizationProblem)
     terminate_cb2 = ContinuousCallback(terminate_condition2,terminate_affect!)
 
     #Control
-    OP.s_control = OP.track.smid #This should go on the constructor.
     OP.actions[1] = zeros(length(OP.s_control)) #idem
     OP.actions[2] = zeros(length(OP.s_control))
     function control_affect(integrator)
@@ -140,15 +140,14 @@ end
 ####################           Initial solution            #################
 ############################################################################
 #TODO: Here initial actions only for  the midle sections, but could be the same for an arbitrary s_control vector.
-function actions_centerline(track,car_p)
-    vs = track.smid
-    s_control = vs
-    vκ = getindex.(track.xmid,4)
-    popfirst!(vκ)
-    push!(vκ,0.0)
+function actions_centerline(track,car_p,s_control)
+    vκ=[]
+    for si in s_control
+        push!(vκ,get_x(track,si)[4])
+    end
     L = car_p[3]+car_p[4]
     vδ = vκ*L   #Calculate steering from geometry, considering no sliip.
-    vT = 40*ones(length(vs))
+    vT = 40*ones(length(s_control))
     return [vδ,vT]
 end
 

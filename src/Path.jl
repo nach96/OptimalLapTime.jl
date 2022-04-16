@@ -259,7 +259,7 @@ chicane = [
     [1, pi/2, 20, 1],
     [0, 10, 0, -1]
 ]
-chicaneTrack = Track(chicane)
+chicaneTrack = Track(chicane,3)
 straight_s = [
     [0,50,0,-1]
 ]
