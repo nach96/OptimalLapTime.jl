@@ -131,7 +131,7 @@ function SA(OP::OptimizationProblem)
         x_opt =SA_cicle(c,L,x_opt,OP,sim_set)
         c=SA_cooling(c,OP.opt_params)
         L=OP.opt_params.L
-        println(vb,"New step. c = ",c)
+        println("New step. c = ",c)
     end
     return x_opt
 end

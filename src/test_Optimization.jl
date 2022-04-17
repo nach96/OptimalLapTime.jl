@@ -9,14 +9,20 @@ eval_f = [eval_t, eval_s]
 fig = plot()
 debug = true
 Log=[]
+track=barcelonaTrack
 #s_control= chicaneTrack.smid #This should go on the constructor.
-s_control = [0,5,10,15,20,30,40,51.41,56.41,66,76,87.83,92,97.83]
+#s_control = [0,5,10,15,20,30,40,51.41,56.41,66,76,87.83,92,97.83]
+s_tot = track.smid[end]
+s_control=[0.0]
+for i in 1:Int(round(s_tot/5))-1
+    push!(s_control,s_control[i]+=5)
+end
 actions=[[],[]]
 actions_start=[]
 sa_par = SA_params(0.9,0.1,10,[0.05,10.0],actions_start)
 opt_chicane = OptimizationProblem(  #inputs
                                     model_s,
-                                    chicaneTrack,
+                                    track,
                                     car_p,
                                     x0,
                                     eval_f,

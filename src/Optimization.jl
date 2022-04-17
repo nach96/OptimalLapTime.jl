@@ -8,11 +8,19 @@ Base Optimization functions.
 """
 OptimizationProblem
 # Fields
+## Inputs
     - model: Model used for simulation
     - track
     - car_p: [m,Iz,lR,lF,g,Ksf,Ksr,Cr,κ]
     - x0: [t,n,μ,vx,vy,r,δ,T]
     - eval_functions: Array of different objetive funtions.
+    - s_control: Vector with sample distances for control
+    - opt_params: Struct with parameters of the optimization method
+    - Debug [Bool]: Log and plot middle data only if true.
+## Outputs
+    - actions: Result control values of the optimization.
+    - fig: Figure with trajectory plotted
+    - Log: Log with all actions, solutions and evaluation functions during optimization process.
 """
 mutable struct OptimizationProblem
     #Inputs
@@ -23,7 +31,7 @@ mutable struct OptimizationProblem
     eval_functions
     s_control
     opt_params
-    Debug #flag (=1 to plot and log)
+    Debug
     #Outputs
     actions
     fig
@@ -104,26 +112,13 @@ function eval_n(sol,track,Kn)
     end
     return cost
 end
+
 function evaluate(sol,OP)
     J_s = eval_s(sol,OP.track)
     J_t = eval_t(sol)
     return [J_s,J_t]
 end
 function is_better_sol(sol_new,sol_ref,OP)
-    #=TODO: Make generic function pareto_dominate(x,y) Diapo 58.
-        evx = evaluate(sol)
-        ecy = evaluate(sol)
-        one_improves = false
-        for evx,evy in ev_x, evy
-            if evx > evy
-                return false
-            end
-            if ev(x) < ev(y)
-                one_improves = true
-            end
-        end
-        return one_improves
-    =#
     J_snew,J_tnew = evaluate(sol_new,OP)
     J_sref,J_tref = evaluate(sol_ref,OP)
     better = false
@@ -136,10 +131,36 @@ function is_better_sol(sol_new,sol_ref,OP)
     return better       
 end
 
+"""
+Pareto: If at least one element improves, and no other is worse, thats better
+# Problem:
+    Time will always get worse once you advance.
+"""
+function pareto(sol_new,sol_ref,veval)
+    vJ_new = veval(sol_new) #Vector containing all eval functions
+    vJ_ref = veval(sol_ref)
+    vJ_dif = vJ_new-vJ_ref
+    one_worse=false
+    one_improves=false
+    for J in vJ_dif
+        if J<0
+            one_worse = true
+            break
+        elseif J>0
+            one_improves = true
+        end
+    end
+    better = one_improves && one_worse!  
+    return better
+end
+
+
 ############################################################################
 ####################           Initial solution            #################
 ############################################################################
-#TODO: Here initial actions only for  the midle sections, but could be the same for an arbitrary s_control vector.
+"""
+Precalculate actions (at s_control) from ackermann geometry to follow centerline.
+"""
 function actions_centerline(track,car_p,s_control)
     vκ=[]
     for si in s_control

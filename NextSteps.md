@@ -47,8 +47,6 @@ L: Number of movements for every c
 """
 
 ## Code improvements
-    - Make code into modules, instead of only files.
-    - Mira a ver si el tema de las copias se puede hacer mejor
-    ok- Parametrizar el optimizador.
-    ok- Cambiar discretizaciones
-    - Usar eval_n
+    - Usar eval_n.
+        - Hacer is_better_sol genérico pareto. Input funciones de evaluación. (Por orden de prioridad en caso de dudas).
+    - Hacer módulos, tests y doc?
