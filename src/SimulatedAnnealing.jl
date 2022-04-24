@@ -49,7 +49,8 @@ Modify random action from the vector before going out of the road.
 function SA_Nm(x,sol,OP::OptimizationProblem)
     x_new = deepcopy(x) #Be careful! If you modify x_new, x will be modified. 
     i = findmin(abs.(OP.s_control.-sol.t[end]))[2]
-    nv = rand(1:i)
+    i < length(OP.track.smid) ? i_min = max(1,i-3) : i_min=1
+    nv = rand(i_min:i)
     n2 = rand((1,2))
     #Modify action
     Δx = rand()*OP.opt_params.x_max[n2]-OP.opt_params.x_max[n2]/2  

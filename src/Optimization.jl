@@ -61,7 +61,7 @@ end
 ############################################################################
 function setup_simulation(OP::OptimizationProblem)
     #Terminal conditions
-    terminate_condition(u,t,integrator) = abs(u[2])-3
+    terminate_condition(u,t,integrator) = abs(u[2])-2*OP.track.n
     terminate_condition2(u,t,integrator) = u[4]
     terminate_affect!(integrator) = terminate!(integrator)
     terminate_cb = ContinuousCallback(terminate_condition,terminate_affect!)
@@ -102,12 +102,11 @@ end
 eval_t(sol) = sol[1,end]
 eval_s(sol,track) = track.smid[end] - sol.t[end]
 function eval_n(sol,track,Kn)
-    s = sol[1,:]
     n = sol[2,:]
     cost = 0
-    for si in s
-        if n > track.n
-            cost += Kn*abs(n[si]-track.n)
+    for i in 1:length(n)
+        if abs(n[i]) > track.n
+            cost += Kn*abs(n[i]-track.n)
         end
     end
     return cost
@@ -116,16 +115,20 @@ end
 function evaluate(sol,OP)
     J_s = eval_s(sol,OP.track)
     J_t = eval_t(sol)
-    return [J_s,J_t]
+    J_n = eval_n(sol,OP.track,1.0)
+    return [J_s,J_t,J_n]
 end
+
 function is_better_sol(sol_new,sol_ref,OP)
-    J_snew,J_tnew = evaluate(sol_new,OP)
-    J_sref,J_tref = evaluate(sol_ref,OP)
+    J_snew,J_tnew, J_nnew = evaluate(sol_new,OP)
+    J_sref,J_tref, J_nref = evaluate(sol_ref,OP)
     better = false
     
     if J_snew < J_sref
         better = true
-    elseif J_snew==J_sref && J_tnew <J_tref
+    elseif J_snew==J_sref && J_nnew <J_nref
+        better = true
+    elseif J_snew==J_sref && J_nnew == J_nref && J_tnew <J_tref
         better = true
     end
     return better       

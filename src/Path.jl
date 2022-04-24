@@ -210,7 +210,7 @@ oval = [
         [0, 155, 0, -1],
     ]
 
-ovalTrack = Track(oval)    
+ovalTrack = Track(oval,3)    
 barcelona = [
         [0, 927, 0, -1],
         [1, 1.48, 40, 1],

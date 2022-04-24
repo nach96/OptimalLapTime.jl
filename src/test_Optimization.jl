@@ -9,14 +9,16 @@ eval_f = [eval_t, eval_s]
 fig = plot()
 debug = true
 Log=[]
-track=barcelonaTrack
-#s_control= chicaneTrack.smid #This should go on the constructor.
+track=chicaneTrack
+s_control= track.smid #This should go on the constructor.
 #s_control = [0,5,10,15,20,30,40,51.41,56.41,66,76,87.83,92,97.83]
+#=
 s_tot = track.smid[end]
 s_control=[0.0]
 for i in 1:Int(round(s_tot/5))-1
     push!(s_control,s_control[i]+=5)
 end
+=#
 actions=[[],[]]
 actions_start=[]
 sa_par = SA_params(0.9,0.1,10,[0.05,10.0],actions_start)
@@ -43,16 +45,18 @@ println(x)
 sol=simulate(x,prob,OP)
 =#
 
-actions = optimize(opt_chicane,SA)
+@time actions = optimize(opt_chicane,SA)
 
 OP = opt_chicane
 vx=[]
 vsol=[]
 vevals=[]
 vevalt=[]
+vevaln=[]
 for step in OP.Log
     push!(vx,step.actions)
     push!(vsol,step.solutions)
     push!(vevals,step.eval_st[1])
     push!(vevalt,step.eval_st[2])
+    push!(vevaln,step.eval_st[3])
 end
