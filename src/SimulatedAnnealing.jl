@@ -46,6 +46,7 @@ SA_len(par::SA_params) = par.L #(slide 39)
 Nm: Function to generate neighbourhood
 Modify random action from the vector before going out of the road.
 """
+
 function SA_Nm(x,sol,OP::OptimizationProblem)
     x_new = deepcopy(x) #Be careful! If you modify x_new, x will be modified. 
     i = findmin(abs.(OP.s_control.-sol.t[end]))[2]
@@ -68,15 +69,20 @@ function metropolis(c,sol_new,sol_ref,OP)
         P=1
         dprint(vb,"Better")
     else
-        J_snew,J_tnew = evaluate(sol_new,OP)
-        J_sref,J_tref = evaluate(sol_ref,OP)
+        J_snew,J_tnew, J_nnew = evaluate(sol_new,OP)
+        J_sref,J_tref, J_nref = evaluate(sol_ref,OP)
+
         if J_snew > J_sref
             ΔE = (J_snew-J_sref)
             dprint(vb,"J_snew worse; ")
-        elseif J_snew==J_sref
+        elseif J_snew==J_sref && J_nnew > J_nref
+            ΔE = J_nnew-J_nref
+            dprint(vb,"J_nnew worse; ")
+        elseif J_snew==J_sref && J_nnew == J_nref && J_tnew > J_tref
             ΔE = J_tnew-J_tref
             dprint(vb,"J_tnew worse; ")
         end
+
         P = exp(-ΔE/c) #Probability of accepting wrong solution [0:1]
         dprint(vb,"ΔE=", ΔE)
     end

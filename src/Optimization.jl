@@ -170,7 +170,7 @@ function actions_centerline(track,car_p,s_control)
         push!(vκ,get_x(track,si)[4])
     end
     L = car_p[3]+car_p[4]
-    vδ = vκ*L   #Calculate steering from geometry, considering no sliip.
+    vδ = asin.(vκ*L)   #Calculate steering from geometry, considering no sliip.
     vT = 40*ones(length(s_control))
     return [vδ,vT]
 end
